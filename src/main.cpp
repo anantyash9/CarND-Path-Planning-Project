@@ -307,8 +307,8 @@ int main() {
 			}
 
 
-			double delta_acc = 0.3;
-			double max_speed = 49.5;
+			double delta_acc = 0.24;
+			double max_speed = 47.5;
 			if (too_close) {
 
 				if (!car_right && lane < 2) {
