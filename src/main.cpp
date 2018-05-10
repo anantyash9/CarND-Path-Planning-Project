@@ -282,8 +282,8 @@ int main() {
 				
 
 				int safe_distance = 30;
-				bool collision_chance = ((car_s - safe_distance* 0.5) < this_car_s) && ((car_s + safe_distance) > this_car_s);
-				bool halfway_collision_chance = ((car_s - safe_distance* 0.5) < half_this_car_s) && ((car_s + safe_distance) > half_this_car_s);
+				bool collision_chance = ((car_s - safe_distance* 0.7) < this_car_s) && ((car_s + safe_distance) > this_car_s);
+				bool halfway_collision_chance = ((car_s - safe_distance* 0.7) < half_this_car_s) && ((car_s + safe_distance) > half_this_car_s);
 
 
 				if (l == lane && too_close == false) {
@@ -330,7 +330,7 @@ int main() {
 			} else {
 				
 				if (ref_vel < max_speed) {
-					
+
 					ref_vel += delta_acc;
 				}
 			}
