@@ -278,7 +278,7 @@ int main() {
 				this_car_s += ((double)prev_size*0.02*this_car_speed);
 
 				int safe_distance = 20;
-				bool collision_chance = ((car_s - safe_distance) < this_car_s) && ((car_s + safe_distance) > this_car_s);
+				bool collision_chance = ((car_s - safe_distance* 0.4) < this_car_s) && ((car_s + safe_distance) > this_car_s);
 
 				// Identify whether the car is ahead, to the left, or to the right
 				if (l == lane && too_close == false) {
