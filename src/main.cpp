@@ -291,14 +291,14 @@ int main() {
 				if (l == lane && too_close == false) {
 					// Another car is ahead
 					too_close = (this_car_s > car_s) && ((this_car_s - car_s) < safe_distance);
-				} else if (l - lane == 1 && car_right == false) {
+				} else if (l - lane == 1 ) {
 					// Another car is to the right
-					car_right = collision_chance;
-					cars_halfway_right =halfway_collision_chance;
-				} else if (lane - l == 1 && car_left == false) {
+					car_right |= collision_chance;
+					cars_halfway_right |=halfway_collision_chance;
+				} else if (lane - l == 1 ) {
 					// Another car is to the left
-					car_left = collision_chance;
-					cars_halfway_left =halfway_collision_chance;
+					car_left| = collision_chance;
+					cars_halfway_left| =halfway_collision_chance;
 				}else if (lane - l == 2 && cars_left==false) {
 					// Another car is to the left of the left
 					cars_left = collision_chance;
