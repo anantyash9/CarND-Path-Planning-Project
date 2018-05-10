@@ -201,7 +201,7 @@ int main() {
   	map_waypoints_dy.push_back(d_y);
   }
   int lane = 1;
-  double ref_vel = 0.1;
+  double ref_vel = 0.0;
 
   h.onMessage([&map_waypoints_x,&map_waypoints_y,&map_waypoints_s,&map_waypoints_dx,&map_waypoints_dy,&lane,&ref_vel](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length,
                      uWS::OpCode opCode) {
@@ -246,69 +246,83 @@ int main() {
               car_s = end_path_s;
             }
 
-            bool car_ahead = false;
-            bool car_left = false;
-            bool car_righ = false;
-            for ( int i = 0; i < sensor_fusion.size(); i++ ) {
-                float d = sensor_fusion[i][6];
-                int car_lane = -1;
-                // is it on the same lane we are
-                if ( d > 0 && d < 4 ) {
-                  car_lane = 0;
-                } else if ( d > 4 && d < 8 ) {
-                  car_lane = 1;
-                } else if ( d > 8 && d < 12 ) {
-                  car_lane = 2;
-                }
-                if (car_lane < 0) {
-                  continue;
-                }
-                // Find car speed.
-                double vx = sensor_fusion[i][3];
-                double vy = sensor_fusion[i][4];
-                double check_speed = sqrt(vx*vx + vy*vy);
-                double check_car_s = sensor_fusion[i][5];
-                // Estimate car s position after executing previous trajectory.
-                check_car_s += ((double)prev_size*0.02*check_speed);
+            bool too_close = false;
+			bool car_left = false;
+			bool car_right = false;
 
-                if ( car_lane == lane ) {
-                  // Car in our lane.
-                  car_ahead |= check_car_s > car_s && check_car_s - car_s < 30;
-                } else if ( car_lane - lane == -1 ) {
-                  // Car left
-                  car_left |= car_s - 30 < check_car_s && car_s + 30 > check_car_s;
-                } else if ( car_lane - lane == 1 ) {
-                  // Car right
-                  car_righ |= car_s - 30 < check_car_s && car_s + 30 > check_car_s;
-                }
-            }
+			// Find ref_v to use, see if car is in lane
+			for (int i = 0; i < sensor_fusion.size(); i++) {
+				// Car is in my lane
+				float d = sensor_fusion[i][6];
 
-            // Behavior : Let's see what to do.
-            double speed_diff = 0;
-            const double MAX_SPEED = 49.5;
-            const double MAX_ACC = .224;
-            if ( car_ahead ) { // Car ahead
-              if ( !car_left && lane > 0 ) {
-                // if there is no car left and there is a left lane.
-                lane--; // Change lane left.
-              } else if ( !car_righ && lane != 2 ){
-                // if there is no car right and there is a right lane.
-                lane++; // Change lane right.
-              } else {
-                speed_diff -= MAX_ACC;
-              }
-            } else {
-              if ( lane != 1 ) { // if we are not on the center lane.
-                if ( ( lane == 0 && !car_righ ) || ( lane == 2 && !car_left ) ) {
-                  lane = 1; // Back to center.
-                }
-              }
-              if ( ref_vel < MAX_SPEED ) {
-                speed_diff += MAX_ACC;
-              }
-            }
+				// Identify the lane of the car in question
+				int car_lane;
+				if (d >= 0 && d < 4) {
+					car_lane = 0;
+				} else if (d >= 4 && d < 8) {
+					car_lane = 1;
+				} else if (d >= 8 && d <= 12) {
+					car_lane = 2;
+				} else {
+					continue;
+				}
 
+				// Check width of lane, in case cars are merging into our lane
+				double vx = sensor_fusion[i][3];
+				double vy = sensor_fusion[i][4];
+				double check_speed = sqrt(vx*vx + vy*vy);
+				double check_car_s = sensor_fusion[i][5];
 
+				// If using previous points can project an s value outwards in time
+				// (What position we will be in in the future)
+				// check s values greater than ours and s gap
+				check_car_s += ((double)prev_size*0.02*check_speed);
+
+				int gap = 30; // m
+
+				// Identify whether the car is ahead, to the left, or to the right
+				if (car_lane == lane) {
+					// Another car is ahead
+					too_close |= (check_car_s > car_s) && ((check_car_s - car_s) < gap);
+				} else if (car_lane - lane == 1) {
+					// Another car is to the right
+					car_right |= ((car_s - gap) < check_car_s) && ((car_s + gap) > check_car_s);
+				} else if (lane - car_lane == 1) {
+					// Another car is to the left
+					car_left |= ((car_s - gap) < check_car_s) && ((car_s + gap) > check_car_s);
+				}
+			}
+
+			// Modulate the speed to avoid collisions. Change lanes if it is safe to do so (nobody to the side)
+			double acc = 0.224;
+			double max_speed = 49.5;
+			if (too_close) {
+				// A car is ahead
+				// Decide to shift lanes or slow down
+				if (!car_right && lane < 2) {
+					// No car to the right AND there is a right lane -> shift right
+					lane++;
+				} else if (!car_left && lane > 0) {
+					// No car to the left AND there is a left lane -> shift left
+					lane--;
+				} else {
+					// Nowhere to shift -> slow down
+					ref_vel -= acc;
+				}
+			} else {
+				if (lane != 1) {
+					// Not in the center lane. Check if it is safe to move back
+					if ((lane == 2 && !car_left) || (lane == 0 && !car_right)) {
+						// Move back to the center lane
+						lane = 1;
+					}
+				}
+				
+				if (ref_vel < max_speed) {
+					// No car ahead AND we are below the speed limit -> speed limit
+					ref_vel += acc;
+				}
+			}
 
 
 
