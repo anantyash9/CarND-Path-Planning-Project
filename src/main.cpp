@@ -251,6 +251,8 @@ int main() {
 			bool car_right = false;
 			bool cars_right = false;
 			bool cars_left	= false;
+			bool cars_halfway_right = false;
+			bool cars_halfway_left = false; 
 			const int lane_width = 4;
 
 
@@ -277,10 +279,13 @@ int main() {
 				// If using previous points can project an s value outwards in time
 				// (What position we will be in in the future)
 				// check s values greater than ours and s gap
+				double half_this_car_s = this_car_s+((double)prev_size*0.01*this_car_speed);
 				this_car_s += ((double)prev_size*0.02*this_car_speed);
+				
 
 				int safe_distance = 20;
 				bool collision_chance = ((car_s - safe_distance* 0.4) < this_car_s) && ((car_s + safe_distance) > this_car_s);
+				bool halfway_collision_chance = ((car_s - safe_distance* 0.4) < half_this_car_s) && ((car_s + safe_distance) > half_this_car_s);
 
 				// Identify whether the car is ahead, to the left, or to the right
 				if (l == lane && too_close == false) {
@@ -289,9 +294,11 @@ int main() {
 				} else if (l - lane == 1 && car_right == false) {
 					// Another car is to the right
 					car_right = collision_chance;
+					cars_halfway_right =halfway_collision_chance;
 				} else if (lane - l == 1 && car_left == false) {
 					// Another car is to the left
 					car_left = collision_chance;
+					cars_halfway_left =halfway_collision_chance;
 				}else if (lane - l == 2 && cars_left==false) {
 					// Another car is to the left of the left
 					cars_left = collision_chance;
@@ -313,10 +320,10 @@ int main() {
 				} else if (!car_left && lane > 0) {
 					// No car to the left AND there is a left lane -> shift left
 					lane-=1;
-				} else if (!cars_left && lane == 2) {
+				} else if (!cars_left && cars_halfway_left &&  lane == 2) {
 					// No car to the left AND there is a left lane -> shift left
 					lane-=2;
-				}else if (!cars_right && lane == 0) {
+				}else if (!cars_right && !cars_halfway_right && lane == 0) {
 					// No car to the left AND there is a left lane -> shift left
 					lane+=2;
 				}else {
