@@ -249,6 +249,8 @@ int main() {
             bool too_close = false;
 			bool car_left = false;
 			bool car_right = false;
+			bool cars_right = false;
+			bool cars_left	= false;
 			const int lane_width = 4;
 
 
@@ -290,6 +292,12 @@ int main() {
 				} else if (lane - l == 1 && car_left == false) {
 					// Another car is to the left
 					car_left = collision_chance;
+				}else if (lane - l == 2 && cars_left==false) {
+					// Another car is to the left of the left
+					cars_left = collision_chance;
+				}else if (l-lane == 2 && cars_right==false) {
+					// Another car is to the left of the left
+					cars_right = collision_chance;
 				}
 			}
 
@@ -305,7 +313,13 @@ int main() {
 				} else if (!car_left && lane > 0) {
 					// No car to the left AND there is a left lane -> shift left
 					lane-=1;
-				} else {
+				} else if (!cars_left && lane = 2) {
+					// No car to the left AND there is a left lane -> shift left
+					lane-=2;
+				}else if (!cars_right && lane = 0) {
+					// No car to the left AND there is a left lane -> shift left
+					lane+=2;
+				}else {
 					// Nowhere to shift -> slow down
 					ref_vel -= delta_acc;
 				}
