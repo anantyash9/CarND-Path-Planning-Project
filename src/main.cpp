@@ -278,16 +278,16 @@ int main() {
 				this_car_s += ((double)prev_size*0.02*this_car_speed);
 
 				int safe_distance = 20;
-				bool collision_chance = ((car_s - safe_distance) < check_car_s) && ((car_s + safe_distance) > check_car_s);
+				bool collision_chance = ((car_s - safe_distance) < this_car_s) && ((car_s + safe_distance) > this_car_s);
 
 				// Identify whether the car is ahead, to the left, or to the right
 				if (l == lane && too_close == false) {
 					// Another car is ahead
-					too_close = (this_car_s > car_s) && ((this_car_s - car_s) < gap);
+					too_close = (this_car_s > car_s) && ((this_car_s - car_s) < safe_distance);
 				} else if (l - lane == 1 && car_right == false) {
 					// Another car is to the right
 					car_right = collision_chance;
-				} else if (lane - car_lane == 1 && car_left == false) {
+				} else if (lane - l == 1 && car_left == false) {
 					// Another car is to the left
 					car_left = collision_chance;
 				}
@@ -304,10 +304,10 @@ int main() {
 					lane+=1;
 				} else if (!car_left && lane > 0) {
 					// No car to the left AND there is a left lane -> shift left
-					lane--1;
+					lane-=1;
 				} else {
 					// Nowhere to shift -> slow down
-					ref_vel -= acc;
+					ref_vel -= delta_acc;
 				}
 			} else {
 				
