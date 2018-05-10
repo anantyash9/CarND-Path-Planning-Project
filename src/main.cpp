@@ -297,8 +297,8 @@ int main() {
 					cars_halfway_right |=halfway_collision_chance;
 				} else if (lane - l == 1 ) {
 					// Another car is to the left
-					car_left| = collision_chance;
-					cars_halfway_left| =halfway_collision_chance;
+					car_left |= collision_chance;
+					cars_halfway_left |=halfway_collision_chance;
 				}else if (lane - l == 2 && cars_left==false) {
 					// Another car is to the left of the left
 					cars_left = collision_chance;
