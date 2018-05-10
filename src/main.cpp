@@ -313,10 +313,10 @@ int main() {
 				} else if (!car_left && lane > 0) {
 					// No car to the left AND there is a left lane -> shift left
 					lane-=1;
-				} else if (!cars_left && lane = 2) {
+				} else if (!cars_left && lane == 2) {
 					// No car to the left AND there is a left lane -> shift left
 					lane-=2;
-				}else if (!cars_right && lane = 0) {
+				}else if (!cars_right && lane == 0) {
 					// No car to the left AND there is a left lane -> shift left
 					lane+=2;
 				}else {
