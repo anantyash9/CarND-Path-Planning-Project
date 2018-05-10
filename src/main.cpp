@@ -249,78 +249,71 @@ int main() {
             bool too_close = false;
 			bool car_left = false;
 			bool car_right = false;
+			const int lane_width = 4;
 
-			// Find ref_v to use, see if car is in lane
+
 			for (int i = 0; i < sensor_fusion.size(); i++) {
-				// Car is in my lane
+
 				float d = sensor_fusion[i][6];
 
-				// Identify the lane of the car in question
-				int car_lane;
-				if (d >= 0 && d < 4) {
-					car_lane = 0;
-				} else if (d >= 4 && d < 8) {
-					car_lane = 1;
-				} else if (d >= 8 && d <= 12) {
-					car_lane = 2;
-				} else {
-					continue;
+				int l;
+
+				if (d >= 0 && d < lane_width) {
+					l = 0;
+				} else if (d >= lane_width && d < lane_width*2) {
+					l = 1;
+				} else if (d >= lane_width*2 && d <= lane_width*3) {
+					l = 2;
 				}
 
 				// Check width of lane, in case cars are merging into our lane
 				double vx = sensor_fusion[i][3];
 				double vy = sensor_fusion[i][4];
-				double check_speed = sqrt(vx*vx + vy*vy);
-				double check_car_s = sensor_fusion[i][5];
+				double this_car_speed = sqrt(vx*vx + vy*vy);
+				double this_car_s = sensor_fusion[i][5];
 
 				// If using previous points can project an s value outwards in time
 				// (What position we will be in in the future)
 				// check s values greater than ours and s gap
-				check_car_s += ((double)prev_size*0.02*check_speed);
+				this_car_s += ((double)prev_size*0.02*this_car_speed);
 
-				int gap = 30; // m
+				int safe_distance = 20;
+				bool collision_chance = ((car_s - safe_distance) < check_car_s) && ((car_s + safe_distance) > check_car_s);
 
 				// Identify whether the car is ahead, to the left, or to the right
-				if (car_lane == lane) {
+				if (l == lane && too_close == false) {
 					// Another car is ahead
-					too_close |= (check_car_s > car_s) && ((check_car_s - car_s) < gap);
-				} else if (car_lane - lane == 1) {
+					too_close = (this_car_s > car_s) && ((this_car_s - car_s) < gap);
+				} else if (l - lane == 1 && car_right == false) {
 					// Another car is to the right
-					car_right |= ((car_s - gap) < check_car_s) && ((car_s + gap) > check_car_s);
-				} else if (lane - car_lane == 1) {
+					car_right = collision_chance;
+				} else if (lane - car_lane == 1 && car_left == false) {
 					// Another car is to the left
-					car_left |= ((car_s - gap) < check_car_s) && ((car_s + gap) > check_car_s);
+					car_left = collision_chance;
 				}
 			}
 
 			// Modulate the speed to avoid collisions. Change lanes if it is safe to do so (nobody to the side)
-			double acc = 0.224;
+			double delta_acc = 0.3;
 			double max_speed = 49.5;
 			if (too_close) {
 				// A car is ahead
 				// Decide to shift lanes or slow down
 				if (!car_right && lane < 2) {
 					// No car to the right AND there is a right lane -> shift right
-					lane++;
+					lane+=1;
 				} else if (!car_left && lane > 0) {
 					// No car to the left AND there is a left lane -> shift left
-					lane--;
+					lane--1;
 				} else {
 					// Nowhere to shift -> slow down
 					ref_vel -= acc;
 				}
 			} else {
-				if (lane != 1) {
-					// Not in the center lane. Check if it is safe to move back
-					if ((lane == 2 && !car_left) || (lane == 0 && !car_right)) {
-						// Move back to the center lane
-						lane = 1;
-					}
-				}
 				
 				if (ref_vel < max_speed) {
 					// No car ahead AND we are below the speed limit -> speed limit
-					ref_vel += acc;
+					ref_vel += delta_acc;
 				}
 			}
 
