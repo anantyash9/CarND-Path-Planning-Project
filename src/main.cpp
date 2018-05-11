@@ -200,7 +200,9 @@ int main() {
   	map_waypoints_dx.push_back(d_x);
   	map_waypoints_dy.push_back(d_y);
   }
+  // The car starts in the middle lane
   int lane = 1;
+  // The car starts with a initial velocity of zero
   double ref_vel = 0.0;
 
   h.onMessage([&map_waypoints_x,&map_waypoints_y,&map_waypoints_s,&map_waypoints_dx,&map_waypoints_dy,&lane,&ref_vel](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length,
@@ -216,12 +218,12 @@ int main() {
 
       if (s != "") {
         auto j = json::parse(s);
-        
+
         string event = j[0].get<string>();
-        
+
         if (event == "telemetry") {
           // j[1] is the data JSON object
-          
+
         	// Main car's localization Data
           	double car_x = j[1]["x"];
           	double car_y = j[1]["y"];
@@ -233,7 +235,7 @@ int main() {
           	// Previous path data given to the Planner
           	auto previous_path_x = j[1]["previous_path_x"];
           	auto previous_path_y = j[1]["previous_path_y"];
-          	// Previous path's end s and d values 
+          	// Previous path's end s and d values
           	double end_path_s = j[1]["end_path_s"];
           	double end_path_d = j[1]["end_path_d"];
 
@@ -241,94 +243,129 @@ int main() {
           	auto sensor_fusion = j[1]["sensor_fusion"];
 
           	int prev_size = previous_path_x.size();
-
-          	if (prev_size > 0) {
+            //if there were no previous points then just use the car's last position as starting point
+          	if (prev_size > 0)
+            {
               car_s = end_path_s;
             }
-
-            bool too_close = false;
+      // is there a car ahead in the same lane which is too close to us ?
+      bool too_close = false;
+      // is there a car (ahead or at our back) that would colide if we switch lane to the left ?
 			bool car_left = false;
+      // is there a car (ahead or at our back) that would colide if we switch lane to the right ?
 			bool car_right = false;
+      // is there a car (ahead or at our back) that would colide if we switch TWO lanes to the right ?
 			bool cars_right = false;
+      // is there a car (ahead or at our back) that would colide if we switch TWO lanes to the left ?
 			bool cars_left	= false;
+      // is there a car (ahead or at our back in the middle lane) that would colide
+      // with us halfway between if we switch TWO lanes to the right ?
 			bool cars_halfway_right = false;
-			bool cars_halfway_left = false; 
+      // is there a car (ahead or at our back in the middle lane) that would colide
+      // with us halfway between if we switch TWO lanes to the left ?
+			bool cars_halfway_left = false;
+      // width of the lane
 			const int lane_width = 4;
 
-
+      //scan the sensor fusion data to see if there is a car that is positive for any of the above conditions
 			for (int i = 0; i < sensor_fusion.size(); i++) {
 
+        // Get the (latral) position of the car in frenet coordinates
 				float d = sensor_fusion[i][6];
-
+        // lane of this car
 				int l;
 
 				if (d >= 0 && d < lane_width) {
+          // this car is in the letf most lane
 					l = 0;
 				} else if (d >= lane_width && d < lane_width*2) {
+          // this car is in the middle lane
 					l = 1;
 				} else if (d >= lane_width*2 && d <= lane_width*3) {
+          // this car is in the right most lane
 					l = 2;
 				}
 
-
+        // Get the speed of the car from xy speed
+        // This is very close to speed of the car in frenet s
 				double vx = sensor_fusion[i][3];
 				double vy = sensor_fusion[i][4];
 				double this_car_speed = sqrt(vx*vx + vy*vy);
+        // Position of the car is s
 				double this_car_s = sensor_fusion[i][5];
 
-
+        // where will the car be in futue but halfway through the next step
 				double half_this_car_s = this_car_s+((double)prev_size*0.01*this_car_speed);
-				this_car_s += ((double)prev_size*0.02*this_car_speed);
-				
+        // where will the car be in futue
+        this_car_s += ((double)prev_size*0.02*this_car_speed);
 
+        //safe distance
 				int safe_distance = 30;
+        // collision chance if a lane shift is carried out
 				bool collision_chance = ((car_s - safe_distance* 0.7) < this_car_s) && ((car_s + safe_distance) > this_car_s);
+        // collision chance midway during a change if a double lane shift is carried out
 				bool halfway_collision_chance = ((car_s - safe_distance* 0.7) < half_this_car_s) && ((car_s + safe_distance) > half_this_car_s);
 
-
+        // if the car is in the same lane
+        // and we have not found any other car in our lane that is too close to us
+        //  then check if this car is too close or not
 				if (l == lane && too_close == false) {
-
 					too_close = (this_car_s > car_s) && ((this_car_s - car_s) < safe_distance);
-				} else if (l - lane == 1 ) {
-
+				}
+        // if this car is to our right
+        else if (l - lane == 1 ) {
 					car_right |= collision_chance;
 					cars_halfway_right |=halfway_collision_chance;
-				} else if (lane - l == 1 ) {
-
+				}
+        // if this car is to our left
+        else if (lane - l == 1 ) {
 					car_left |= collision_chance;
 					cars_halfway_left |=halfway_collision_chance;
-				}else if (lane - l == 2 && cars_left==false) {
-
+				}
+        // if the car is to the extreme left of us
+        else if (lane - l == 2 && cars_left==false) {
 					cars_left = collision_chance;
-				}else if (l-lane == 2 && cars_right==false) {
-
+				}
+        // if the car is to the extreme right of us
+        else if (l-lane == 2 && cars_right==false) {
 					cars_right = collision_chance;
 				}
 			}
 
-
+      // acceleration/deceleration allowed
 			double delta_acc = 0.24;
+      // max speed allowed
 			double max_speed = 47.5;
+      // when too close consider your options
 			if (too_close) {
-
+        // can we turn right ?
 				if (!car_right && lane < 2) {
 
 					lane+=1;
-				} else if (!car_left && lane > 0) {
+				}
+        // can we turn left ?
+        else if (!car_left && lane > 0) {
 
 					lane-=1;
-				} else if (!cars_left && cars_halfway_left &&  lane == 2) {
+				}
+        // can we double shift left ? we dont want to be late.
+        else if (!cars_left && cars_halfway_left &&  lane == 2) {
 
 					lane-=2;
-				}else if (!cars_right && !cars_halfway_right && lane == 0) {
+				}
+        // can we double shift right ? we dont want to be late.
+        else if (!cars_right && !cars_halfway_right && lane == 0) {
 
 					lane+=2;
-				}else {
-
+				}
+        // we can do nothing but slow down. we are going to be late for office.
+        else {
 					ref_vel -= delta_acc;
 				}
-			} else {
-				
+			}
+      // There is no one in our lane. If we are bellow speed limit we need to step on it.
+      else {
+
 				if (ref_vel < max_speed) {
 
 					ref_vel += delta_acc;
@@ -344,7 +381,7 @@ int main() {
           	double ref_yaw = deg2rad(car_yaw) ;
 
           	if (prev_size < 2)
-			  { 
+			  {
 			    double prev_car_x = car_x - cos(car_yaw);
 			    double prev_car_y = car_y - sin(car_yaw);
 			    ptsx.push_back(prev_car_x);
@@ -352,8 +389,8 @@ int main() {
 			    ptsy.push_back(prev_car_y);
 			    ptsy.push_back(car_y);
 			  }
-			else  
-			  { 
+			else
+			  {
 			    ref_x = previous_path_x[prev_size - 1];
 			    ref_y = previous_path_y[prev_size - 1];
 
@@ -386,7 +423,7 @@ int main() {
 
 		    ptsx[i] = shift_x * cos(0 - ref_yaw) - shift_y * sin(0 - ref_yaw);
 		    ptsy[i] = shift_x * sin(0 - ref_yaw) + shift_y * cos(0 - ref_yaw);
-		  } 
+		  }
 
 		  tk::spline s;
 		  s.set_points(ptsx, ptsy);
@@ -437,7 +474,7 @@ int main() {
 
           	//this_thread::sleep_for(chrono::milliseconds(1000));
           	ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT);
-          
+
         }
       } else {
         // Manual driving
